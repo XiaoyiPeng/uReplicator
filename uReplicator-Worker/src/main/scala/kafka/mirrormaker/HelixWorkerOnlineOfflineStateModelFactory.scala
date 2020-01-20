@@ -42,7 +42,9 @@ class HelixWorkerOnlineOfflineStateModelFactory(final val instanceId: String,
       // add topic partition on the instance
       connectors.addTopicPartition(message.getResourceName, message.getPartitionName.toInt)
       if (topicPartitionCountObserver != null) {
-        topicPartitionCountObserver.addTopic(message.getResourceName)
+        //由于topicPartitionCountObserver 是目标集群的Topic的观测器;所以加入的topic应该加入dstTopicPrefix
+        //topicPartitionCountObserver.addTopic(message.getResourceName)
+        topicPartitionCountObserver.addTopic(MirrorMakerWorker.dstTopicPrefix.concat(message.getResourceName))
       }
       debug("Finish OnlineOfflineStateModel.onBecomeOnlineFromOffline for topic: "
         + message.getResourceName() + ", partition: " + message.getPartitionName()

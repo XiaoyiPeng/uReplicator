@@ -25,6 +25,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import kafka.common.Topic;
+import kafka.server.OffsetManager;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.slf4j.Logger;
@@ -65,7 +67,7 @@ public class AutoTopicWhitelistingManager {
   private final KafkaBrokerTopicObserver _destKafkaTopicObserver;
 
   private final ZkClient _zkClient;
-  private final String _blacklistedTopicsZPath;
+  private final String _blacklistedTopicsZPath;//在zk路径下添加;/${helixClusterName}/BLACKLISTED_TOPICS 子节点;
 
   private final String _patternToExcludeTopics;
   private final Set<String> _blacklistedTopics =
@@ -131,7 +133,7 @@ public class AutoTopicWhitelistingManager {
           LOGGER.info("Trying to whitelist topics: {}",
               Arrays.toString(candidateTopicsToWhitelist.toArray(new String[0])));
           _numErrorTopics.dec(_numErrorTopics.getCount());
-          whitelistCandiateTopics(candidateTopicsToWhitelist);
+          whitelistCandiateTopics(candidateTopicsToWhitelist);//add TopicPartition to helix;
         } else {
           LOGGER.debug("Not leader, skip auto topic whitelisting!");
         }
@@ -150,7 +152,7 @@ public class AutoTopicWhitelistingManager {
 
   private Set<String> getCandidateTopicsToWhitelist() {
     Set<String> candidateTopics = new HashSet<String>(_srcKafkaTopicObserver.getAllTopics());
-    candidateTopics.retainAll(_destKafkaTopicObserver.getAllTopics());
+    candidateTopics.retainAll(_destKafkaTopicObserver.getAllTopics()); //岂不是需要源集群，目标集群的Topic名称相同;
     candidateTopics.removeAll(_helixMirrorMakerManager.getTopicLists());
     candidateTopics.addAll(getPartitionMismatchedTopics());
 
@@ -192,6 +194,7 @@ public class AutoTopicWhitelistingManager {
   private void loadBlacklistedTopics() {
     _blacklistedTopics.clear();
     _blacklistedTopics.addAll(_zkClient.getChildren(_blacklistedTopicsZPath));
+    _blacklistedTopics.add("__consumer_offsets");// Topic.InternalTopics
   }
 
   private void whitelistCandiateTopics(Set<String> candidateTopicsToWhitelist) {

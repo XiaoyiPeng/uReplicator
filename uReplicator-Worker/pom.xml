@@ -182,6 +182,11 @@
             <artifactId>scalatest_${kafka.scala.version}</artifactId>
             <version>${scalatest.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.dmall.monitor</groupId>
+            <artifactId>dmc-sdk</artifactId>
+            <version>1.1.0-SNAPSHOT</version>
+        </dependency>
     </dependencies>
 
     <properties>
@@ -274,12 +279,12 @@
                     <target>${jdk.version}</target>
                 </configuration>
             </plugin>
-            <plugin>
+            <!--<plugin>
               <groupId>org.apache.maven.plugins</groupId>
               <artifactId>maven-assembly-plugin</artifactId>
               <version>2.4.1</version>
               <configuration>
-                <!-- get all project dependencies -->
+                &lt;!&ndash; get all project dependencies &ndash;&gt;
                 <descriptorRefs>
                   <descriptorRef>jar-with-dependencies</descriptorRef>
                 </descriptorRefs>
@@ -293,7 +298,7 @@
                   </goals>
                 </execution>
               </executions>
-            </plugin>
+            </plugin>-->
         </plugins>
     </build>
 

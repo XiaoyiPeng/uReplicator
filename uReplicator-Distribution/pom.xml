@@ -118,10 +118,10 @@
 				<configuration>
 					<programs>
 						<program>
-							<mainClass>com.uber.stream.kafka.mirrormaker.starter.MirrorMakerStarter</mainClass>
+							<mainClass>com.uber.stream.kafka.mirrormaker.controller.ControllerStarter</mainClass>
 							<id>start-controller</id>
 							<commandLineArguments>
-								<commandLineArgument>startMirrorMakerController</commandLineArgument>
+								<commandLineArgument>-configFile config/mirror-task.properties</commandLineArgument>
 							</commandLineArguments>
 							<jvmSettings>
 								<initialMemorySize>512m</initialMemorySize>
@@ -129,10 +129,10 @@
 							</jvmSettings>
 							<jvmSettings>
 								<extraArguments>
-									<extraArgument>-Dapp_name=uReplicator-Controller</extraArgument>
-									<extraArgument>-cp</extraArgument>
-									<extraArgument>uReplicator-Distribution/target/uReplicator-Distribution-0.1-SNAPSHOT-jar-with-dependencies.jar</extraArgument>
-									<extraArgument>-XX:+UseG1GC</extraArgument>
+									<extraArgument>-DprojectCode=dmg</extraArgument>
+									<extraArgument>-DappCode=mirror-controller</extraArgument>
+									<extraArgument>-DstartupMonitor=false</extraArgument>
+									<!--<extraArgument>-XX:+UseG1GC</extraArgument>
 									<extraArgument>-XX:+DisableExplicitGC</extraArgument>
 									<extraArgument>-XX:+PrintGCDetails</extraArgument>
 									<extraArgument>-XX:+PrintGCDateStamps</extraArgument>
@@ -145,15 +145,19 @@
 									<extraArgument>-XX:InitiatingHeapOccupancyPercent=85</extraArgument>
 									<extraArgument>-XX:+UnlockExperimentalVMOptions</extraArgument>
 									<extraArgument>-XX:G1MixedGCLiveThresholdPercent=85</extraArgument>
-									<extraArgument>-XX:G1HeapWastePercent=5</extraArgument>
+									<extraArgument>-XX:G1HeapWastePercent=5</extraArgument>-->
 								</extraArguments>
 							</jvmSettings>
 						</program>
 						<program>
-							<mainClass>com.uber.stream.kafka.mirrormaker.starter.MirrorMakerStarter</mainClass>
+							<mainClass>kafka.mirrormaker.MirrorMakerWorker</mainClass>
 							<id>start-worker</id>
 							<commandLineArguments>
-								<commandLineArgument>startMirrorMakerWorker</commandLineArgument>
+								<commandLineArgument>--consumer.config config/consumer.properties</commandLineArgument>
+								<commandLineArgument>--producer.config config/producer.properties</commandLineArgument>
+								<commandLineArgument>--dstzk.config config/dstzk.properties</commandLineArgument>
+								<commandLineArgument>--helix.config config/helix.properties</commandLineArgument>
+								<commandLineArgument>--topic.mappings config/topicmapping.properties</commandLineArgument>
 							</commandLineArguments>
 							<jvmSettings>
 								<initialMemorySize>512m</initialMemorySize>
@@ -161,10 +165,10 @@
 							</jvmSettings>
 							<jvmSettings>
 								<extraArguments>
-									<extraArgument>-Dapp_name=uReplicator-Worker</extraArgument>
-									<extraArgument>-cp</extraArgument>
-									<extraArgument>uReplicator-Distribution/target/uReplicator-Distribution-0.1-SNAPSHOT-jar-with-dependencies.jar</extraArgument>
-									<extraArgument>-XX:+UseG1GC</extraArgument>
+									<extraArgument>-DprojectCode=dmg</extraArgument>
+									<extraArgument>-DappCode=mirror-worker</extraArgument>
+									<extraArgument>-DstartupMonitor=false</extraArgument>
+									<!--<extraArgument>-XX:+UseG1GC</extraArgument>
 									<extraArgument>-XX:+DisableExplicitGC</extraArgument>
 									<extraArgument>-XX:+PrintGCDetails</extraArgument>
 									<extraArgument>-XX:+PrintGCDateStamps</extraArgument>
@@ -177,59 +181,19 @@
 									<extraArgument>-XX:InitiatingHeapOccupancyPercent=85</extraArgument>
 									<extraArgument>-XX:+UnlockExperimentalVMOptions</extraArgument>
 									<extraArgument>-XX:G1MixedGCLiveThresholdPercent=85</extraArgument>
-									<extraArgument>-XX:G1HeapWastePercent=5</extraArgument>
+									<extraArgument>-XX:G1HeapWastePercent=5</extraArgument>-->
 								</extraArguments>
 							</jvmSettings>
-						</program>
-						<program>
-							<mainClass>com.uber.stream.kafka.mirrormaker.starter.MirrorMakerStarter</mainClass>
-							<id>start-controller-example1</id>
-							<jvmSettings>
-								<extraArgument>-Dapp_name=uReplicator-Controller</extraArgument>
-							</jvmSettings>
-							<commandLineArguments>
-								<commandLineArgument>startMirrorMakerController -example1</commandLineArgument>
-							</commandLineArguments>
-						</program>
-						<program>
-							<mainClass>com.uber.stream.kafka.mirrormaker.starter.MirrorMakerStarter</mainClass>
-							<id>start-controller-example2</id>
-							<jvmSettings>
-								<extraArgument>-Dapp_name=uReplicator-Controller</extraArgument>
-							</jvmSettings>
-							<commandLineArguments>
-								<commandLineArgument>startMirrorMakerController -example2</commandLineArgument>
-							</commandLineArguments>
-						</program>
-						<program>
-							<mainClass>com.uber.stream.kafka.mirrormaker.starter.MirrorMakerStarter</mainClass>
-							<id>start-worker-example1</id>
-							<jvmSettings>
-								<extraArgument>-Dapp_name=uReplicator-Worker</extraArgument>
-							</jvmSettings>
-							<commandLineArguments>
-								<commandLineArgument>startMirrorMakerWorker kafka.mirrormaker.MirrorMakerWorker --consumer.config config/consumer.properties --producer.config config/producer.properties --helix.config config/helix.properties --topic.mappings config/topicmapping.properties</commandLineArgument>
-							</commandLineArguments>
-						</program>
-						<program>
-							<mainClass>com.uber.stream.kafka.mirrormaker.starter.MirrorMakerStarter</mainClass>
-							<id>start-worker-example2</id>
-							<jvmSettings>
-								<extraArgument>-Dapp_name=uReplicator-Worker</extraArgument>
-							</jvmSettings>
-							<commandLineArguments>
-								<commandLineArgument>startMirrorMakerWorker kafka.mirrormaker.MirrorMakerWorker --consumer.config config/consumer.properties --producer.config config/producer.properties --helix.config config/helix.properties</commandLineArgument>
-							</commandLineArguments>
 						</program>
 					</programs>
 					<binFileExtensions>
 						<unix>.sh</unix>
 					</binFileExtensions>
 					<!-- Set the target configuration directory to be used in the bin scripts -->
-					<configurationDirectory>conf</configurationDirectory>
+					<configurationDirectory>config</configurationDirectory>
 					<!-- Copy the contents from "/src/main/config" to the target configuration
 						directory in the assembled application -->
-					<copyConfigurationDirectory>false</copyConfigurationDirectory>
+					<copyConfigurationDirectory>true</copyConfigurationDirectory>
 					<!-- Include the target configuration directory in the beginning of
 						the classpath declaration in the bin scripts -->
 					<includeConfigurationDirectoryInClasspath>false</includeConfigurationDirectoryInClasspath>
@@ -240,6 +204,8 @@
 					<platforms>
 						<platform>unix</platform>
 					</platforms>
+					<repositoryName>lib</repositoryName>
+					<repositoryLayout>flat</repositoryLayout>
 				</configuration>
 			</plugin>
 			<plugin>
@@ -265,16 +231,19 @@
 						</configuration>
 					</execution>
 					<execution>
-						<id>copy-repo</id>
+						<id>copy-config</id>
 						<phase>package</phase>
 						<goals>
 							<goal>copy-resources</goal>
 						</goals>
 						<configuration>
-							<outputDirectory>../bin/repo</outputDirectory>
+							<outputDirectory>${project.build.directory}/${project.artifactId}-pkg/config</outputDirectory>
 							<resources>
 								<resource>
-									<directory>${project.build.directory}/${project.artifactId}-pkg/repo</directory>
+									<directory>../config</directory>
+									<includes>
+										<include>*.properties</include>
+									</includes>
 								</resource>
 							</resources>
 						</configuration>

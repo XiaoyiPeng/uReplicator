@@ -17,11 +17,15 @@ package com.uber.stream.kafka.mirrormaker.controller;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 
+import com.dmall.monitor.sdk.MonitorConfig;
+import kafka.utils.Utils;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.lang.StringUtils;
 import org.restlet.Application;
 import org.restlet.Component;
 import org.restlet.Context;
@@ -46,8 +50,8 @@ import com.uber.stream.kafka.mirrormaker.controller.validation.ValidationManager
  */
 public class ControllerStarter {
 
-  private static final String DEST_KAFKA_CLUSTER = "destKafkaCluster";
-  private static final String SRC_KAFKA_CLUSTER = "srcKafkaCluster";
+  private static final String DEST_KAFKA_CLUSTER = "destKafkaCluster"; //这个值填目标kafka cluster的zk集群的地址;
+  private static final String SRC_KAFKA_CLUSTER = "srcKafkaCluster"; //这个值填源kafka cluster的zk集群的地址;
   private static final Logger LOGGER = LoggerFactory.getLogger(ControllerStarter.class);
   private final ControllerConf _config;
 
@@ -96,7 +100,7 @@ public class ControllerStarter {
   }
 
   private AutoTopicWhitelistingManager getAutoTopicWhitelistingManager() {
-    if (_config.getEnableAutoWhitelist()) {
+    if (_config.getEnableAutoWhitelist()) { //如果开启自动白名单;
       if (!_kafkaBrokerTopicObserverMap.containsKey(SRC_KAFKA_CLUSTER)) {
         _kafkaBrokerTopicObserverMap.put(SRC_KAFKA_CLUSTER,
             new KafkaBrokerTopicObserver(SRC_KAFKA_CLUSTER, _config.getSrcKafkaZkPath()));
@@ -202,18 +206,19 @@ public class ControllerStarter {
 
   public static ControllerConf getDefaultConf() {
     final ControllerConf conf = new ControllerConf();
-    conf.setControllerPort("9000");
+    conf.setControllerPort("9001");
     conf.setZkStr("localhost:2181");
     conf.setHelixClusterName("testMirrorMaker");
     conf.setBackUpToGit("false");
     conf.setAutoRebalanceDelayInSeconds("120");
     conf.setLocalBackupFilePath("/var/log/kafka-mirror-maker-controller");
+    conf.setEnvironment("dev.kb");
     return conf;
   }
 
   public static ControllerConf getExampleConf() {
     final ControllerConf conf = new ControllerConf();
-    conf.setControllerPort("9000");
+    conf.setControllerPort("9001");
     conf.setZkStr("localhost:2181");
     conf.setHelixClusterName("testMirrorMaker");
     conf.setBackUpToGit("false");
@@ -225,6 +230,54 @@ public class ControllerStarter {
     conf.setDestKafkaZkPath("localhost:2181/cluster2");
     conf.setInitWaitTimeInSeconds("10");
     conf.setRefreshTimeInSeconds("20");
+    conf.setEnvironment("dev.kb");
+    return conf;
+  }
+
+  public static ControllerConf getConfFromFile(String configFile) {
+    final ControllerConf conf = new ControllerConf();
+
+    Properties props = Utils.loadProps(configFile);
+    props.list(System.out);
+    String port = props.getProperty("port", "9000");
+    conf.setControllerPort(port);
+
+    String zkUrl = props.getProperty("helixZookeeperUrl");
+    if (StringUtils.isEmpty(zkUrl)) {
+      throw new IllegalArgumentException("请在配置文件中指定Helix集群注册的zookeeper地址，属性名:'helix.zookeeper.url'");
+    }
+    conf.setZkStr(zkUrl);
+
+    String helixClusterName = props.getProperty("helixClusterName");
+    if (StringUtils.isEmpty(helixClusterName)) {
+      throw new IllegalArgumentException("请在配置文件中指定待创建的Helix集群名称，属性名:'helixClusterName'");
+    }
+    conf.setHelixClusterName(helixClusterName);
+
+    conf.setBackUpToGit("false");
+    conf.setAutoRebalanceDelayInSeconds("120");
+    conf.setLocalBackupFilePath("/var/log/kafka-mirror-maker-controller");
+
+    String autoWhiteList = props.getProperty("autoWhiteList", "true");
+    conf.setEnableAutoWhitelist(autoWhiteList);
+
+    conf.setEnableAutoTopicExpansion("true");
+
+    String srcKafkaZkPath = props.getProperty("srcKafkaZkPath");
+    if (StringUtils.isEmpty(srcKafkaZkPath)) {
+      throw new IllegalArgumentException("请在配置文件中指定源KafKa集群的zk路径，属性名:'srcKafkaZkPath'");
+    }
+    conf.setSrcKafkaZkPath(srcKafkaZkPath);
+
+    String destKafkaZkPath = props.getProperty("destKafkaZkPath");
+    if (StringUtils.isEmpty(destKafkaZkPath)) {
+      throw new IllegalArgumentException("请在配置文件中指定目标KafKa集群的zk路径，属性名:'srcKafdestKafkaZkPathkaZkPath'");
+    }
+    conf.setDestKafkaZkPath(destKafkaZkPath);
+    //conf.setDestKafkaZkPath("localhost:2181/cluster2");
+    conf.setInitWaitTimeInSeconds("10");
+    conf.setRefreshTimeInSeconds("20");
+    conf.setEnvironment("prod.kb");
     return conf;
   }
 
@@ -234,6 +287,10 @@ public class ControllerStarter {
       conf = getDefaultConf();
     } else if (cmd.hasOption("example2")) {
       conf = getExampleConf();
+    } else if (cmd.hasOption("configFile")) {
+      String configFile = cmd.getOptionValue("configFile");
+      conf = getConfFromFile(configFile);
+
     } else {
       try {
         conf = ControllerConf.getControllerConf(cmd);
@@ -254,6 +311,7 @@ public class ControllerStarter {
       f.printHelp("OptionsTip", ControllerConf.constructControllerOptions());
       System.exit(0);
     }
+    initDmc();
     final ControllerStarter controllerStarter = ControllerStarter.init(cmd);
 
     Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -271,5 +329,23 @@ public class ControllerStarter {
     } catch (Exception e) {
       LOGGER.error("Cannot start Helix Mirror Maker Controller: ", e);
     }
+  }
+
+  private static void initDmc() {
+    String projectCode = System.getProperty("projectCode");
+    if (StringUtils.isEmpty(projectCode)) {
+      throw new RuntimeException("unknown projectCode!");
+    }
+    String appCode = System.getProperty("appCode");
+    if (StringUtils.isEmpty(appCode)) {
+      throw new RuntimeException("unknown projectCode!");
+    }
+    String startupMonitor = System.getProperty("startupMonitor", "true");
+    MonitorConfig monitorConfig = new MonitorConfig(projectCode, appCode, Boolean.parseBoolean(startupMonitor));
+    monitorConfig.monitorInit();
+  }
+
+  private static void registerMirrorTask() {
+
   }
 }

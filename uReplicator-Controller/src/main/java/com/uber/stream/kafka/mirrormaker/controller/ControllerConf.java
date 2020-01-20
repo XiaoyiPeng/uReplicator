@@ -42,7 +42,7 @@ public class ControllerConf extends PropertiesConfiguration {
   private static final String GRAPHITE_PORT = "controller.graphite.port";
   private static final String SRC_KAFKA_ZK_PATH = "controller.srckafka.zkStr";
   private static final String DEST_KAFKA_ZK_PATH = "controller.destkafka.zkStr";
-  private static final String ENABLE_AUTO_WHITELIST = "controller.enable.auto.whitelist";
+  private static final String ENABLE_AUTO_WHITELIST = "controller.enable.auto.whitelist"; //自动开启白名单;即是源集群，目标集群有相同的Topic名就会自动同步;
   private static final String ENABLE_AUTO_TOPIC_EXPANSION =
       "controller.enable.auto.topic.expansion";
 
@@ -302,8 +302,9 @@ public class ControllerConf extends PropertiesConfiguration {
   public static Options constructControllerOptions() {
     final Options controllerOptions = new Options();
     controllerOptions.addOption("help", false, "Help")
-        .addOption("example1", false, "Start with default example")
-        .addOption("example2", false, "Start with autowhitelisting example")
+        //.addOption("example1", false, "Start with default example")
+        //.addOption("example2", false, "Start with autowhitelisting example")
+        .addOption("configFile", true, "Config file path")
         .addOption("helixClusterName", true, "Helix Cluster Name")
         .addOption("mode", true, "Controller Mode")
         .addOption("zookeeper", true, "Zookeeper path")

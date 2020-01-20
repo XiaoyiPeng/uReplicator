@@ -22,6 +22,7 @@ import java.util.concurrent.locks.ReentrantLock
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.{Collections, Properties, UUID}
 
+import com.dmall.monitor.sdk.MonitorConfig
 import com.yammer.metrics.core.Meter
 import com.yammer.metrics.core.Gauge
 import joptsimple.OptionParser
@@ -29,6 +30,7 @@ import kafka.consumer._
 import kafka.message.MessageAndMetadata
 import kafka.metrics.KafkaMetricsGroup
 import kafka.utils.{CommandLineUtils, Logging, Utils}
+import org.apache.commons.lang.StringUtils
 import org.apache.helix.participant.StateMachineEngine
 import org.apache.helix.{HelixManager, HelixManagerFactory, InstanceType}
 import org.apache.kafka.clients.producer.internals.ErrorLoggingCallback
@@ -76,10 +78,17 @@ object MirrorMakerWorker extends Logging with KafkaMetricsGroup {
   private val recordCount: AtomicInteger = new AtomicInteger(0)
   private val flushCommitLock: ReentrantLock = new ReentrantLock
   private var mapFailureMeter: Meter = null
+
+  /** 目标集群的Topic与分区数的观测者;*/
   private var topicPartitionCountObserver: TopicPartitionCountObserver = null
 
+  /**
+   * 鉴于dmg对Topic的管理设计，一般目标集群中的Topic与源集群中的Topic多了一个前缀;
+   */
+  var dstTopicPrefix: String = null;
+
   def main(args: Array[String]) {
-    info("Starting mirror maker")
+    info("Starting mirror maker worker")
     val parser = new OptionParser
 
     val consumerConfigOpt = parser.accepts("consumer.config",
@@ -161,7 +170,11 @@ object MirrorMakerWorker extends Logging with KafkaMetricsGroup {
     }
     if (dstZkProps != null && dstZkProps.getProperty("enable", "false").toBoolean) {
       info("TopicPartitionCountObserver is enabled")
-
+      if (!dstZkProps.containsKey("dstTopicPrefix")) { //在配置文件中必须指定目标集群的Topic的前缀;哪怕为''，这样避免出错;
+        throw new IllegalArgumentException("请指定目标集群的Topic前缀: dstTopicPrefix!")
+      }
+      dstTopicPrefix = dstZkProps.getProperty("dstTopicPrefix", "")
+      //目标集群的Topic与分区数的观测者;
       topicPartitionCountObserver = new TopicPartitionCountObserver(
         dstZkProps.getProperty("zkServer", "localhost:2181"),
         dstZkProps.getProperty("zkPath", "/brokers/topics"),
@@ -243,14 +256,25 @@ object MirrorMakerWorker extends Logging with KafkaMetricsGroup {
       }).toMap
     } else Map.empty[String, String]
 
+    initDmc()
     mirrorMakerThread = new MirrorMakerThread(connector, instanceId)
     mirrorMakerThread.start()
     mirrorMakerThread.awaitShutdown()
   }
 
+  private def initDmc(): Unit = {
+    val projectCode = System.getProperty("projectCode")
+    if (StringUtils.isEmpty(projectCode)) throw new RuntimeException("unknown projectCode!")
+    val appCode = System.getProperty("appCode")
+    if (StringUtils.isEmpty(appCode)) throw new RuntimeException("unknown projectCode!")
+    val startupMonitor = System.getProperty("startupMonitor", "true")
+    val monitorConfig = new MonitorConfig(projectCode, appCode, java.lang.Boolean.parseBoolean(startupMonitor))
+    monitorConfig.monitorInit()
+  }
+
   def addToHelixController(): Unit = {
     helixZkManager = HelixManagerFactory.getZKHelixManager(helixClusterName, instanceId, InstanceType.PARTICIPANT, zkServer)
-    val stateMachineEngine: StateMachineEngine = helixZkManager.getStateMachineEngine()
+    val stateMachineEngine = helixZkManager.getStateMachineEngine()
     // register the MirrorMaker worker
     val stateModelFactory = new HelixWorkerOnlineOfflineStateModelFactory(instanceId, connector, topicPartitionCountObserver)
     stateMachineEngine.registerStateModelFactory("OnlineOffline", stateModelFactory)
@@ -292,7 +316,7 @@ object MirrorMakerWorker extends Logging with KafkaMetricsGroup {
       // flush the last batches of msg and commit the offsets
       // since MM threads are stopped, it's consistent to flush/commit here
       // commit offsets
-      maybeFlushAndCommitOffsets(true)
+      maybeFlushAndCommitOffsets(true)//会提交最后消费的offsets信息;
 
       info("Shutting down consumer connectors.")
       connector.shutdown()
@@ -451,14 +475,17 @@ object MirrorMakerWorker extends Logging with KafkaMetricsGroup {
   private object defaultMirrorMakerMessageHandler extends MirrorMakerMessageHandler {
     override def handle(record: MessageAndMetadata[Array[Byte], Array[Byte]]): util.List[ProducerRecord[Array[Byte], Array[Byte]]] = {
       // rewrite topic between consuming side and producing side
-      val topic = topicMappings.get(record.topic).getOrElse(record.topic)
+      if (StringUtils.isEmpty(dstTopicPrefix)) {
+        throw new IllegalArgumentException("请指定目标集群的Topic前缀: dstTopicPrefix!")
+      }
+      val topic = topicMappings.get(record.topic).getOrElse(dstTopicPrefix.concat(record.topic))
       var partitionCount = 0
       if (topicPartitionCountObserver != null) {
         partitionCount = topicPartitionCountObserver.getPartitionCount(topic)
       }
       if (partitionCount > 0 && record.partition >= 0) {
         Collections.singletonList(new ProducerRecord[Array[Byte], Array[Byte]](topic,
-          record.partition % partitionCount, record.key(), record.message()))
+          record.partition % partitionCount, record.key(), record.message())) //保留分区信息;
       } else {
         if (topicPartitionCountObserver != null) {
           // this is failure if topicPartitionCountObserver is enabled
